@@ -2,6 +2,7 @@ import {pref, App} from './app.js';
 import {Sync} from "./sync.js";
 import {Migrate} from './migrate.js';
 import {Proxy} from './proxy.js';
+import {OnRequest} from './on-request.js';
 import './persist.js';
 
 // ---------- process preferences --------------------------
@@ -14,7 +15,16 @@ class ProcessPref {
   static async init() {
     // Chrome: Top-level await is disallowed in service workers
     // user preference
-    await App.getPref();
+    await App.getPref().catch(() => {});
+
+    // Start Firefox request handling from the last local snapshot without
+    // waiting for sync, migration, or proxy-settings housekeeping below.
+    // Older preference formats still need migration, so leave those pending
+    // for the normal Proxy.set() initialization rather than aborting startup.
+    if (App.firefox) {
+      try { OnRequest.init(pref); }
+      catch {}
+    }
 
     // storage sync -> local update
     await Sync.get(pref);
